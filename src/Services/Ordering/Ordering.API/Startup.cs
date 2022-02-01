@@ -2,19 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Basket.API.GrpcServices;
-using Basket.API.Repositories;
-using Discount.Grpc.Protos;
-using MassTransit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Ordering.Application;
+using Ordering.Infrastructure;
 
-namespace Basket.API
+namespace Ordering.API
 {
     public class Startup
     {
@@ -29,35 +28,12 @@ namespace Basket.API
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
+            services.AddApplicationServices();
+            services.AddInfrastructureServices(Configuration);
             services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo { Title = "Basket Microserice", Version = "v1" });
+                c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo { Title = "Ordering Microserice", Version = "v1" });
             });
-
-            //Redis Confuguration
-            services.AddStackExchangeRedisCache(options =>
-            {
-                options.Configuration = Configuration.GetValue<String>("CacheSettings:ConnectionString");
-            });
-            services.AddScoped<IBasketRepository, BasketRepository>();
-            services.AddAutoMapper(typeof(Startup));
-
-            //Adding GRPC Service Configuration
-            services.AddGrpcClient<DiscountProtoService.DiscountProtoServiceClient>(
-                o => o.Address = new Uri(Configuration["GrpcSettings:DiscountUrl"]));
-            services.AddScoped<DiscountGrpcServices>();
-
-
-            //MassTransit- Rabbit MQ Configuration
-            services.AddMassTransit(config =>
-            {
-                config.UsingRabbitMq((ctx, cfg) =>
-                {
-                    // connection string of the rabbit mq : amqp://<username>:<password>@<server>:<port>
-                    cfg.Host(Configuration["EventBusSettings:HostAddress"]);
-                });
-            });
-            services.AddMassTransitHostedService();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -69,9 +45,11 @@ namespace Basket.API
                 app.UseSwagger();
                 app.UseSwaggerUI(c =>
                 {
-                    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Basket MicroService");
+                    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Ordering MicroService");
                 });
             }
+
+            app.UseHttpsRedirection();
 
             app.UseRouting();
 
