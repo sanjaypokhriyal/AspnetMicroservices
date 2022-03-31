@@ -43,6 +43,7 @@ namespace Basket.API
             services.AddAutoMapper(typeof(Startup));
 
             //Adding GRPC Service Configuration
+            AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
             services.AddGrpcClient<DiscountProtoService.DiscountProtoServiceClient>(
                 o => o.Address = new Uri(Configuration["GrpcSettings:DiscountUrl"]));
             services.AddScoped<DiscountGrpcServices>();

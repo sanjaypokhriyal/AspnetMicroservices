@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using EventBus.Messages.Common;
-using MassTransit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpsPolicy;
@@ -12,11 +10,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Ordering.API.EventBusConsumer;
-using Ordering.Application;
-using Ordering.Infrastructure;
+using Shopping.Aggregator.Services;
 
-namespace Ordering.API
+namespace Shopping.Aggregator
 {
     public class Startup
     {
@@ -31,35 +27,28 @@ namespace Ordering.API
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
-            services.AddApplicationServices();
-
-            services.AddMassTransit(config =>
-            {
-                config.AddConsumer<BasketCheckoutConsumer>();
-
-                config.UsingRabbitMq((ctx, cfg) =>
-                {
-                    // connection string of the rabbit mq : amqp://<username>:<password>@<server>:<port>
-                    cfg.Host(Configuration["EventBusSettings:HostAddress"]);
-
-                    cfg.ReceiveEndpoint(EventBusConstants.BasketCheckoutQueue, c =>
-                    {
-                        c.ConfigureConsumer<BasketCheckoutConsumer>(ctx);
-                    });
-                });
-            });
-
-            services.AddMassTransitHostedService();
-            services.AddInfrastructureServices(Configuration);
             services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo { Title = "Ordering Microserice", Version = "v1" });
+                c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo { Title = "Shopping Aggregator", Version = "v1" });
             });
 
-            services.AddAutoMapper(typeof(Startup));
+            services.AddHttpClient<ICatalogService, CatalogService>(c =>
+                c.BaseAddress = new Uri(Configuration["ApiSettings:CatalogUrl"]));
+            //.AddHttpMessageHandler<LoggingDelegatingHandler>()
+            //.AddPolicyHandler(GetRetryPolicy())
+            //.AddPolicyHandler(GetCircuitBreakerPolicy());
 
-            services.AddScoped<BasketCheckoutConsumer>();
+            services.AddHttpClient<IBasketService, BasketService>(c =>
+                c.BaseAddress = new Uri(Configuration["ApiSettings:BasketUrl"]));
+            //.AddHttpMessageHandler<LoggingDelegatingHandler>()
+            //.AddPolicyHandler(GetRetryPolicy())
+            //.AddPolicyHandler(GetCircuitBreakerPolicy());
 
+            services.AddHttpClient<IOrderService, OrderService>(c =>
+                c.BaseAddress = new Uri(Configuration["ApiSettings:OrderingUrl"]));
+            //.AddHttpMessageHandler<LoggingDelegatingHandler>()
+            //.AddPolicyHandler(GetRetryPolicy())
+            //.AddPolicyHandler(GetCircuitBreakerPolicy());
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -71,7 +60,7 @@ namespace Ordering.API
                 app.UseSwagger();
                 app.UseSwaggerUI(c =>
                 {
-                    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Ordering MicroService");
+                    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Shopping Aggregator");
                 });
             }
 
